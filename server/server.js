@@ -14,7 +14,7 @@ let urlDB = '';
 if (process.env.NODE_ENV === "dev") {
     urlDB = 'mongodb://localhost:27017/cafe_test';
 } else {
-    urlDB = 'mongodb+srv://Aldair619:@@@@S0p0rt3@cluster0.em3cz.mongodb.net/cafe_test';
+    urlDB = process.env.MONGO_URI;
 }
 
 process.env.URLDB = urlDB;
