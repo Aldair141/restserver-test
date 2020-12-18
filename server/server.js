@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === "dev") {
 }
 
 process.env.URLDB = urlDB;
-process.env.SIDE = 'mi-key-secreta';
+process.env.SIDE = process.env.SIDE || 'mi-key-secreta-dev';
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
