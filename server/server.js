@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const _ = require('underscore');
+const jwt = require('jsonwebtoken');
 const Usuario = require('../models/usuario');
+const { validaToken, usuarioAdmin } = require('../middleware/validaciones');
 
 const app = express();
 const port = process.env.PORT || 1500;
@@ -18,11 +20,50 @@ if (process.env.NODE_ENV === "dev") {
 }
 
 process.env.URLDB = urlDB;
+process.env.SIDE = 'mi-key-secreta';
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.get("/usuario", (request, response) => {
+app.get('/login', (request, response) => {
+    let usuario = request.body;
+
+    Usuario.findOne({ correo: usuario.correo }, (err, data) => {
+        if (err) {
+            return response.status(400).json({
+                ok: false,
+                error: err
+            });
+        }
+
+        //Validamos si encontró un dato con ese correo.
+        if (!data) {
+            return response.status(500).json({
+                ok: false,
+                error: '(Usuario) y/o clave no válidos.'
+            });
+        }
+
+        //Validamos la clave
+        if (!bcrypt.compareSync(usuario.clave, data.clave)) {
+            return response.status(500).json({
+                ok: false,
+                error: 'Usuario y/o (clave) no válidos.'
+            });
+        }
+
+        //Generamos token
+        let token = jwt.sign({ usuario: data }, process.env.SIDE, { expiresIn: '1h' });
+
+        response.json({
+            ok: true,
+            usuario: data,
+            token: token
+        });
+    });
+});
+
+app.get("/usuario", validaToken, (request, response) => {
     let desde = request.query.desde || 0;
     desde = Number(desde);
 
@@ -41,7 +82,7 @@ app.get("/usuario", (request, response) => {
         criterio._id = _id;
     }
 
-    Usuario.find(criterio, 'nombre correo clave').skip(desde).limit(limite).exec((err, data) => {
+    Usuario.find(criterio, 'nombre correo clave rol').skip(desde).limit(limite).exec((err, data) => {
         if (err) {
             response.status(400).json({
                 ok: false,
@@ -66,7 +107,7 @@ app.get("/usuario", (request, response) => {
     });
 });
 
-app.post("/usuario", (request, response) => {
+app.post("/usuario", [validaToken, usuarioAdmin], (request, response) => {
     let body = request.body;
 
     let usuario = new Usuario({
@@ -94,7 +135,7 @@ app.post("/usuario", (request, response) => {
     });
 });
 
-app.put("/usuario/:id?", (request, response) => {
+app.put("/usuario/:id?", [validaToken, usuarioAdmin], (request, response) => {
     let id = request.params.id || undefined;
 
     if (id === undefined) {
@@ -121,7 +162,7 @@ app.put("/usuario/:id?", (request, response) => {
     });
 });
 
-app.delete("/usuario/:id?", (request, response) => {
+app.delete("/usuario/:id?", [validaToken, usuarioAdmin], (request, response) => {
     let id = request.params.id || undefined;
 
     if (id === undefined) {
